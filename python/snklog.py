@@ -1,26 +1,40 @@
 #!/usr/bin/env python3
+
 import os
 import time
 import glob
 from pathlib import Path
 import argparse
 import sys
+from prettytable import PrettyTable
 
 LOG_DIR = ".snakemake/slurm_logs/"
 
 
 def get_sorted_files(directory):
-    files = glob.glob(os.path.join(directory, "*"))
-    return sorted(files, key=os.path.getmtime, reverse=True)
+    all_files = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            full_path = os.path.join(root, file)
+            all_files.append((full_path, os.path.getmtime(full_path)))
+    return sorted(all_files, key=lambda x: x[1], reverse=True)
 
 
 def list_logs(args):
     files = get_sorted_files(LOG_DIR)
-    for i, file in enumerate(files[: args.max_print]):
-        mtime = os.path.getmtime(file)
-        print(f"{time.ctime(mtime)} - {file}")
+    table = PrettyTable()
+    table.field_names = ["Time", "Directory", "File"]
+    table.align["Directory"] = "l"
+    table.align["File"] = "l"
+
+    for i, (file_path, mtime) in enumerate(files[: args.max_print]):
+        dir_path, filename = os.path.split(file_path)
+        relative_dir = os.path.relpath(dir_path, LOG_DIR)
+        table.add_row([time.ctime(mtime), relative_dir, filename])
         if i >= args.max_print - 1:
             break
+
+    print(table)
 
 
 def tail_file(file, follow=False):
@@ -48,7 +62,7 @@ def tail_log(args):
         print(f"No log files found in {LOG_DIR}")
         return
 
-    most_recent_log = files[0]
+    most_recent_log, _ = files[0]
     print(f"Tailing the most recent log file: {most_recent_log}")
 
     for line in tail_file(most_recent_log, follow=args.follow):
