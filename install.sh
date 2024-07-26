@@ -32,6 +32,7 @@ setup_user_bin() {
 download_file() {
     local file_path="$1"
     local url="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/${file_path}"
+    echo "Downloading $url..."
     curl -sSL "$url" -o "$(basename "$file_path")"
 }
 
