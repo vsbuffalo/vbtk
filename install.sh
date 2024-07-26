@@ -4,6 +4,11 @@ set -e
 # Set up USER_BIN
 USER_BIN="$HOME/.local/bin"
 
+# GitHub repository information
+REPO_OWNER="vsbuffalo"
+REPO_NAME="vbtk"
+BRANCH="main"
+
 # Function to check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -21,6 +26,13 @@ setup_user_bin() {
         echo "To add it permanently, add the following line to your .bashrc or .bash_profile:"
         echo "export PATH=\"$USER_BIN:\$PATH\""
     fi
+}
+
+# Function to download a file from GitHub
+download_file() {
+    local file_path="$1"
+    local url="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/${file_path}"
+    curl -sSL "$url" -o "$(basename "$file_path")"
 }
 
 # Function to install a script
@@ -46,12 +58,17 @@ install_toolkit() {
     setup_user_bin
 
     # Check for required tools
-    for cmd in cp chmod; do
+    for cmd in curl cp chmod mktemp; do
         if ! command_exists $cmd; then
             echo "Error: $cmd is not installed. Please install it and try again."
             exit 1
         fi
     done
+
+    # Create temporary directory
+    TEMP_DIR=$(mktemp -d)
+    echo "Working in temporary directory: $TEMP_DIR"
+    cd "$TEMP_DIR"
 
     # Install scripts
     local scripts=(
@@ -60,12 +77,18 @@ install_toolkit() {
     )
 
     for script in "${scripts[@]}"; do
-        if [ -f "$script" ]; then
-            install_script "$script"
+        echo "Downloading $script..."
+        download_file "$script"
+        if [ -f "$(basename "$script")" ]; then
+            install_script "$(basename "$script")"
         else
-            echo "Warning: $script not found. Skipping."
+            echo "Warning: Failed to download $script. Skipping."
         fi
     done
+
+    # Clean up
+    cd
+    rm -rf "$TEMP_DIR"
 
     echo "Toolkit installation completed successfully!"
     echo "Make sure $USER_BIN is in your PATH."
